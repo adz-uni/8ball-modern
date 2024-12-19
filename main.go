@@ -1,6 +1,7 @@
 package main
 
 import (
+    "encoding/json"
     "log"
     "math/rand"
     "os"
@@ -9,8 +10,18 @@ import (
     "time"
 
     "github.com/slack-go/slack"
+    "github.com/slack-go/slack/slackevents"
     "github.com/slack-go/slack/socketmode"
 )
+
+/* Define the slack rtm.start packet */
+// Removed as we are using Socket Mode
+
+/* Received messages so we know what to respond to */
+// Removed as slackevents handles event types
+
+/* An atomic identifier for messages we post during the session */
+// Not needed for this simple bot
 
 /* Our array of canned responses */
 var magicResponse = []string{
@@ -66,7 +77,7 @@ func main() {
         }
     }()
 
-    log.Println("8ball bot is running with Socket Mode...")
+    log.Println("Magic 8-ball bot is running with Socket Mode...")
 
     for evt := range socketClient.Events {
         switch evt.Type {
@@ -75,18 +86,18 @@ func main() {
         case socketmode.EventTypeConnected:
             log.Println("Connected to Slack!")
         case socketmode.EventTypeEventsAPI:
-            eventPayload, ok := evt.Data.(slackeventsEventsAPIWrapper)
+            eventsAPIEvent, ok := evt.Data.(slackevents.EventsAPIEvent)
             if !ok {
-                // This cast helps us handle events in a strongly typed manner.
-                // If for some reason it fails, we just skip.
+                // If you can't cast, skip this event
+                socketClient.Ack(*evt.Request)
                 continue
             }
 
             // Acknowledge the event to Slack
-            socketClient.Ack(evt.Request)
+            socketClient.Ack(*evt.Request)
 
-            // Process the inner event
-            switch event := eventPayload.InnerEvent.Data.(type) {
+            // Handle the inner event
+            switch event := eventsAPIEvent.InnerEvent.Data.(type) {
             case *slackevents.AppMentionEvent:
                 handleAppMention(socketClient, client, event)
             }
@@ -123,33 +134,9 @@ func handleAppMention(socketClient *socketmode.Client, client *slack.Client, eve
     }
 }
 
-// removeBotMention tries to strip the bot mention portion from the message text
+// removeBotMention strips the bot mention from the message text
 func removeBotMention(text, userID string) string {
-    // Mentions are usually like <@U12345> so we find that pattern
+    // Mentions are usually like <@U12345>, so we find that pattern
     mentionPattern := regexp.MustCompile(`<@([^>]+)>`)
     return strings.TrimSpace(mentionPattern.ReplaceAllString(text, ""))
 }
-
-// --- Slack Events API structures and wrappers ---
-// slack-go provides an events package (slack/slackevents) to parse events from the Events API.
-// We'll emulate that by showing the wrapper and casting.
-
-type slackeventsEventsAPIWrapper struct {
-    InnerEvent slackeventsEventsAPIInnerEvent `json:"event"`
-}
-
-type slackeventsEventsAPIInnerEvent struct {
-    Type string      `json:"type"`
-    Data interface{} `json:"-"`
-}
-
-// We need to parse the event payload. Normally, you'd use `slackevents.ParseEvent` to get a structured event.
-// Let's assume you've integrated `slackevents.ParseEvent` logic somewhere above.
-// For brevity and given the conversation context, let's just assume eventPayload.InnerEvent.Data.(*slackevents.AppMentionEvent)
-// works. In practice, you'd decode the EventsAPI request and use `slackevents.ParseEvent` on it.
-//
-// Also note that in a real scenario, you'd have a full event handler that:
-// - Listens for `app_mention` events
-// - Uses `slackevents.ParseEvent(requestBody, slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: "your-verification-token"}))`
-// For Socket Mode, Slack sends a slightly different payload, and `socketClient.Events` contains already-parsed events.
-// Update this code accordingly once you integrate fully with slackevents.
