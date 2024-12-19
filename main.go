@@ -135,7 +135,7 @@ func handleSlashCommand(w http.ResponseWriter, r *http.Request, signingSecret st
 	log.Printf("Slash Command Replying with: %s", reply)
 
 	response := map[string]string{
-		"text": reply,
+		 "text": "Magic 8-ball is here! (This is a test response)",
 	}
 
 	respBytes, err := json.Marshal(response)
