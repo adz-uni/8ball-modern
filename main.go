@@ -59,7 +59,12 @@ func main() {
 		handleSlashCommand(w, r, signingSecret, client)
 	})
 
-	port := "8080"
+	// Get the port from environment variable, default to 8080
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	log.Printf("Starting HTTP server on :%s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Error starting HTTP server: %v", err)
@@ -110,10 +115,7 @@ func handleSlashCommand(w http.ResponseWriter, r *http.Request, signingSecret st
 		return
 	}
 
-	// Respond immediately to Slack to avoid timeout
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-
+	// Determine the response based on the input
 	var reply string
 	if !strings.HasSuffix(payload.Text, "?") {
 		reply = "Where's the question?"
@@ -143,5 +145,7 @@ func handleSlashCommand(w http.ResponseWriter, r *http.Request, signingSecret st
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(respBytes)
 }
