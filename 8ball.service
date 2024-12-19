@@ -1,0 +1,18 @@
+[Unit]
+Description=Magic 8-ball slack service
+
+[Service]
+Type=simple
+# Set environment variables for Slack tokens.
+# Replace 'xoxb-...' and 'xapp-...' with your actual tokens.
+Environment=SLACK_BOT_TOKEN=xoxb-Your-Bot-Token
+Environment=SLACK_APP_TOKEN=xapp-Your-App-Level-Token
+
+# Run the binary without arguments since the token is now in environment vars.
+ExecStart=/home/cab/bin/my8ball
+
+# Restart on failure, as before.
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
