@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/slack-go/slack"
-	"github.com/slack-go/slack/slackevents"
-	"github.com/joho/godotenv"
 )
 
 // Array of Magic 8-ball responses
@@ -41,33 +39,25 @@ var magicResponse = []string{
 }
 
 func main() {
-	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("No .env file found. Using environment variables.")
-	}
-
 	// Load environment variables
 	botToken := os.Getenv("SLACK_BOT_TOKEN")
 	signingSecret := os.Getenv("SLACK_SIGNING_SECRET")
 
+	// Validate environment variables
 	if botToken == "" || signingSecret == "" {
 		log.Fatal("Error: SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET must be set")
 	}
 
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
-
 	// Initialize Slack client
 	client := slack.New(botToken)
 
-	// Start HTTP server to handle slash commands
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	// Set up the HTTP handler for /ask8ball
 	http.HandleFunc("/ask8ball", func(w http.ResponseWriter, r *http.Request) {
 		handleSlashCommand(w, r, signingSecret, client)
 	})
-
-	// (Optional) Start HTTP server to handle other events if needed
-	// For this setup, we're focusing on Slash Commands only.
 
 	port := "8080"
 	log.Printf("Starting HTTP server on :%s", port)
