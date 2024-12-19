@@ -1,7 +1,6 @@
 package main
 
 import (
-    "encoding/json"
     "log"
     "math/rand"
     "os"
@@ -13,15 +12,6 @@ import (
     "github.com/slack-go/slack/slackevents"
     "github.com/slack-go/slack/socketmode"
 )
-
-/* Define the slack rtm.start packet */
-// Removed as we are using Socket Mode
-
-/* Received messages so we know what to respond to */
-// Removed as slackevents handles event types
-
-/* An atomic identifier for messages we post during the session */
-// Not needed for this simple bot
 
 /* Our array of canned responses */
 var magicResponse = []string{
@@ -99,14 +89,14 @@ func main() {
             // Handle the inner event
             switch event := eventsAPIEvent.InnerEvent.Data.(type) {
             case *slackevents.AppMentionEvent:
-                handleAppMention(socketClient, client, event)
+                handleAppMention(client, event)
             }
         }
     }
 }
 
 // handleAppMention responds to messages that mention the bot
-func handleAppMention(socketClient *socketmode.Client, client *slack.Client, event *slackevents.AppMentionEvent) {
+func handleAppMention(client *slack.Client, event *slackevents.AppMentionEvent) {
     userQuery := strings.TrimSpace(event.Text)
     // Remove the mention text (e.g., "<@U123ABC> ") from the start
     userQuery = removeBotMention(userQuery, event.User)
@@ -137,6 +127,6 @@ func handleAppMention(socketClient *socketmode.Client, client *slack.Client, eve
 // removeBotMention strips the bot mention from the message text
 func removeBotMention(text, userID string) string {
     // Mentions are usually like <@U12345>, so we find that pattern
-    mentionPattern := regexp.MustCompile(`<@([^>]+)>`)
+    mentionPattern := regexp.MustCompile(`<@[^>]+>`)
     return strings.TrimSpace(mentionPattern.ReplaceAllString(text, ""))
 }
