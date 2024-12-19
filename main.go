@@ -13,7 +13,7 @@ import (
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
-	"github.com/slack-go/slack/socketmode"
+	"github.com/joho/godotenv"
 )
 
 // Array of Magic 8-ball responses
@@ -41,113 +41,38 @@ var magicResponse = []string{
 }
 
 func main() {
+	// Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("No .env file found. Using environment variables.")
+	}
+
 	// Load environment variables
 	botToken := os.Getenv("SLACK_BOT_TOKEN")
-	appToken := os.Getenv("SLACK_APP_TOKEN")
 	signingSecret := os.Getenv("SLACK_SIGNING_SECRET")
 
-	if botToken == "" || appToken == "" || signingSecret == "" {
-		log.Fatal("Error: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, and SLACK_SIGNING_SECRET must be set")
+	if botToken == "" || signingSecret == "" {
+		log.Fatal("Error: SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET must be set")
 	}
 
 	// Seed the random number generator
 	rand.Seed(time.Now().UnixNano())
 
-	// Initialize Slack client with Socket Mode
-	client := slack.New(
-		botToken,
-		slack.OptionAppLevelToken(appToken),
-	)
-
-	socketClient := socketmode.New(
-		client,
-		socketmode.OptionLog(log.New(os.Stdout, "socketmode: ", log.Lshortfile|log.LstdFlags)),
-	)
-
-	// Run the Socket Mode client in a separate goroutine
-	go func() {
-		err := socketClient.Run()
-		if err != nil {
-			log.Fatalf("Error running socketmode client: %v", err)
-		}
-	}()
+	// Initialize Slack client
+	client := slack.New(botToken)
 
 	// Start HTTP server to handle slash commands
 	http.HandleFunc("/ask8ball", func(w http.ResponseWriter, r *http.Request) {
 		handleSlashCommand(w, r, signingSecret, client)
 	})
 
-	go func() {
-		port := "8080"
-		log.Printf("Starting HTTP server on :%s", port)
-		if err := http.ListenAndServe(":"+port, nil); err != nil {
-			log.Fatalf("Error starting HTTP server: %v", err)
-		}
-	}()
+	// (Optional) Start HTTP server to handle other events if needed
+	// For this setup, we're focusing on Slash Commands only.
 
-	log.Println("Magic 8-ball bot is running with Socket Mode and HTTP server...")
-
-	// Event loop for Socket Mode
-	for evt := range socketClient.Events {
-		switch evt.Type {
-		case socketmode.EventTypeConnecting:
-			log.Println("Connecting to Slack...")
-		case socketmode.EventTypeConnected:
-			log.Println("Connected to Slack!")
-		case socketmode.EventTypeEventsAPI:
-			eventsAPIEvent, ok := evt.Data.(slackevents.EventsAPIEvent)
-			if !ok {
-				// If you can't cast, skip this event
-				socketClient.Ack(*evt.Request)
-				continue
-			}
-
-			// Acknowledge the event to Slack
-			socketClient.Ack(*evt.Request)
-
-			// Handle the inner event
-			switch event := eventsAPIEvent.InnerEvent.Data.(type) {
-			case *slackevents.AppMentionEvent:
-				handleAppMention(client, event)
-			default:
-				// You can handle other event types here if needed
-			}
-		}
-	}
-}
-
-// handleAppMention processes app_mention events
-func handleAppMention(client *slack.Client, event *slackevents.AppMentionEvent) {
-	log.Printf("Received mention from user %s: %s", event.User, event.Text)
-
-	userQuery := strings.TrimSpace(event.Text)
-	// Remove the bot mention from the message
-	userQuery = removeBotMention(userQuery)
-
-	log.Printf("Processed query: %s", userQuery)
-
-	var reply string
-	if !strings.HasSuffix(userQuery, "?") {
-		reply = "Where's the question?"
-	} else {
-		matched, err := regexp.MatchString("^(who|what|when|where|why|how|if).*", strings.ToLower(userQuery))
-		if err != nil {
-			log.Printf("Regex error: %v", err)
-			reply = "I'm having trouble understanding. Please try again."
-		} else if matched {
-			reply = "I'm not a tarot deck. Yes or no questions please."
-		} else {
-			// Provide a random response
-			reply = magicResponse[rand.Intn(len(magicResponse))]
-		}
-	}
-
-	log.Printf("Replying with: %s", reply)
-
-	// Send a message back to the channel
-	_, _, err := client.PostMessage(event.Channel, slack.MsgOptionText(reply, false))
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
+	port := "8080"
+	log.Printf("Starting HTTP server on :%s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("Error starting HTTP server: %v", err)
 	}
 }
 
@@ -229,11 +154,4 @@ func handleSlashCommand(w http.ResponseWriter, r *http.Request, signingSecret st
 	}
 
 	w.Write(respBytes)
-}
-
-// removeBotMention removes the bot's mention from the message text
-func removeBotMention(text string) string {
-	// Mentions are usually like <@U12345>, so we find that pattern
-	mentionPattern := regexp.MustCompile(`<@[^>]+>`)
-	return strings.TrimSpace(mentionPattern.ReplaceAllString(text, ""))
 }
