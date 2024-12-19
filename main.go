@@ -99,9 +99,13 @@ func main() {
 
 // handleAppMention responds to messages that mention the bot
 func handleAppMention(client *slack.Client, event *slackevents.AppMentionEvent) {
+	log.Printf("Received mention from user %s: %s", event.User, event.Text)
+
 	userQuery := strings.TrimSpace(event.Text)
 	// Remove the mention text (e.g., "<@U123ABC> ") from the start
 	userQuery = removeBotMention(userQuery, event.User)
+
+	log.Printf("Processed query: %s", userQuery)
 
 	var reply string
 	if !strings.HasSuffix(userQuery, "?") {
@@ -118,6 +122,8 @@ func handleAppMention(client *slack.Client, event *slackevents.AppMentionEvent) 
 			reply = magicResponse[rand.Intn(len(magicResponse))]
 		}
 	}
+
+	log.Printf("Replying with: %s", reply)
 
 	// Send a message back to the channel where the mention occurred
 	_, _, err := client.PostMessage(event.Channel, slack.MsgOptionText(reply, false))
